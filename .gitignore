@@ -1,0 +1,25 @@
+# Rust build output
+/target/
+/target_v*_msvc/
+
+# Local runtime data and secrets
+/settings.txt
+/error.log
+/neusoft_to_http.log
+
+# Locally produced release files and archives
+/release/
+/版本存档/
+/resident_typer_demo.exe
+*.zip
+
+# Local design notes and reference captures
+/编码需求.docx
+/authcode.BMP
+
+# Windows and editor files
+/.vs/
+/.vscode/
+*.user
+Thumbs.db
+Desktop.ini
