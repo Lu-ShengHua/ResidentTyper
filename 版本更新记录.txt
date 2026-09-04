@@ -321,3 +321,6 @@ v1.3.40 - 2026-09-01
 v1.3.41 - 2026-09-02
 - Added a persistent option to request server-side one-click signature after medical/order system launch.
 - When medical and order systems launch together, signature is requested once after the shared queue finishes.
+
+v1.3.42 - 2026-09-04
+- Added a cleanup button beside Settings. It closes all matching EMR and resident-station windows, plus all Edge and Chrome instances.

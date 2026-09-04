@@ -51,8 +51,8 @@ const SELECTION_POPUP_CLASS: &str = "ResidentTyperSelectionPopup";
 const SETTINGS_WINDOW_CLASS: &str = "ResidentTyperSettingsWindow";
 const DOCK_HANDLE_CLASS: &str = "ResidentTyperDockHandle";
 const APP_TITLE: &str = "神外小助手";
-const APP_VERSION: &str = "v1.3.41";
-const APP_UPDATED_AT: &str = "2026-09-02";
+const APP_VERSION: &str = "v1.3.42";
+const APP_UPDATED_AT: &str = "2026-09-04";
 const DEFAULT_REMOTE_SIGN_SERVER: &str = "192.168.1.2";
 const DEFAULT_REMOTE_SIGN_PORT: u16 = 41888;
 const STARTUP_VALUE_NAME: &str = "ResidentTyperAssistant";
@@ -108,6 +108,7 @@ const ID_SHORTCUT_CREATE_POSTOP: i32 = 421;
 const ID_POSTOP_BASE_TIME: i32 = 422;
 const ID_ACCOUNT_DIALOG_CLOSE: i32 = 423;
 const ID_SHORTCUT_REMOTE_SIGN: i32 = 424;
+const ID_CLEANUP_RUNNING_APPS: i32 = 425;
 const ID_HTN: i32 = 301;
 const ID_DM: i32 = 302;
 const ID_FAST_HR: i32 = 303;
@@ -264,6 +265,7 @@ static OPEN_PROGRAM_RUNNING: AtomicBool = AtomicBool::new(false);
 static PENDING_MEDICAL_LAUNCH: AtomicBool = AtomicBool::new(false);
 static PENDING_ORDER_LAUNCH: AtomicBool = AtomicBool::new(false);
 static REMOTE_SIGN_RUNNING: AtomicBool = AtomicBool::new(false);
+static CLEANUP_RUNNING: AtomicBool = AtomicBool::new(false);
 static SAVE_ORDER_RUNNING: AtomicBool = AtomicBool::new(false);
 static CLINICAL_PATH_RUNNING: AtomicBool = AtomicBool::new(false);
 static CREATE_ALL_COURSES_RUNNING: AtomicBool = AtomicBool::new(false);
@@ -319,6 +321,7 @@ static mut APP: AppState = AppState {
     tab_shortcuts: 0,
     tab_api: 0,
     settings_button: 0,
+    cleanup_button: 0,
     theme_toggle: 0,
     dock_toggle: 0,
     disease_toggle: 0,
@@ -420,6 +423,7 @@ struct AppState {
     tab_shortcuts: Hwnd,
     tab_api: Hwnd,
     settings_button: Hwnd,
+    cleanup_button: Hwnd,
     theme_toggle: Hwnd,
     dock_toggle: Hwnd,
     disease_toggle: Hwnd,
@@ -1570,6 +1574,7 @@ unsafe fn create_controls(hwnd: Hwnd) {
     apply_font(APP.header, TITLE_FONT);
     APP.dock_toggle = button(hwnd, ID_DOCK_TOGGLE, "吸附", 156, 12, 64, 28);
     APP.theme_toggle = button(hwnd, ID_THEME_TOGGLE, "夜间", 226, 12, 64, 28);
+    APP.cleanup_button = button(hwnd, ID_CLEANUP_RUNNING_APPS, "清理", 202, 780, 48, 24);
     APP.settings_button = button(hwnd, ID_SETTINGS_OPEN_MAIN, "⚙", 258, 780, 28, 24);
     APP.tab_templates = tab_button(hwnd, ID_TAB_TEMPLATES, "病程模板", 20, 68, 132, 32, true);
     APP.tab_shortcuts = tab_button(hwnd, ID_TAB_SHORTCUTS, "快捷键", 152, 68, 132, 32, false);
@@ -3496,6 +3501,7 @@ unsafe fn set_main_controls_visible(visible: bool) {
         APP.tab_shortcuts,
         APP.tab_api,
         APP.settings_button,
+        APP.cleanup_button,
         APP.theme_toggle,
         APP.dock_toggle,
     ] {
@@ -4406,6 +4412,9 @@ unsafe fn layout_footer(hwnd: Hwnd) {
     if APP.settings_button != 0 {
         MoveWindow(APP.settings_button, main_x + 238, height - 32, 28, 24, 1);
     }
+    if APP.cleanup_button != 0 {
+        MoveWindow(APP.cleanup_button, main_x + 184, height - 32, 48, 24, 1);
+    }
 }
 
 #[repr(C)]
@@ -4422,6 +4431,10 @@ unsafe fn handle_command(id: i32) {
     match id {
         ID_SETTINGS_OPEN_MAIN => {
             show_settings_window();
+            return;
+        }
+        ID_CLEANUP_RUNNING_APPS => {
+            start_cleanup_running_apps();
             return;
         }
         ID_TAB_TEMPLATES => {
@@ -6597,6 +6610,68 @@ fn launch_points_2160() -> LaunchPoints {
         medical_focus: (1255, 485),
         medical_login: (1433, 316),
     }
+}
+
+unsafe fn start_cleanup_running_apps() {
+    if CLEANUP_RUNNING.swap(true, Ordering::SeqCst) {
+        set_status("正在清理已运行程序...");
+        return;
+    }
+    set_status("正在清理病历、住院医生站、Edge 和 Chrome...");
+    thread::spawn(|| {
+        let requested = cleanup_running_apps();
+        CLEANUP_RUNNING.store(false, Ordering::SeqCst);
+        unsafe {
+            set_status(&format!("已发送 {} 项程序清理请求。", requested));
+        }
+    });
+}
+
+fn cleanup_running_apps() -> usize {
+    let mut image_names = vec![
+        "msedge.exe".to_string(),
+        "chrome.exe".to_string(),
+        "JHEMRCentral.Win.exe".to_string(),
+        "doctws.exe".to_string(),
+        "EMR-Release.exe".to_string(),
+    ];
+    for path in [
+        configured_medical_system_path(),
+        configured_order_system_path(),
+    ] {
+        if let Some(name) = Path::new(&path)
+            .file_name()
+            .and_then(|name| name.to_str())
+            .filter(|name| !name.trim().is_empty())
+        {
+            if !image_names
+                .iter()
+                .any(|existing| existing.eq_ignore_ascii_case(name))
+            {
+                image_names.push(name.to_string());
+            }
+        }
+    }
+
+    let mut requested = 0;
+    for image_name in image_names {
+        let _ = Command::new("taskkill")
+            .args(["/F", "/T", "/IM", &image_name])
+            .creation_flags(CREATE_NO_WINDOW)
+            .status();
+        requested += 1;
+    }
+    for window_title in ["EMR-Release 增加登录类型*", "卫生部北京医院住院医生站系统*"]
+    {
+        let filter = format!("WINDOWTITLE eq {}", window_title);
+        let _ = Command::new("taskkill")
+            .args(["/F", "/T", "/FI", &filter])
+            .creation_flags(CREATE_NO_WINDOW)
+            .status();
+        requested += 1;
+    }
+    log_event("已执行运行程序清理：病历系统、住院医生站、Edge、Chrome。");
+    requested
 }
 
 unsafe fn start_nursing_flow(account: String) {

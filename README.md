@@ -2,11 +2,11 @@
 
 这是一个 Rust + Win32 的最小依赖工具，用于在 Windows 内网环境中通过模拟键盘输入病例模板。窗口会始终置顶，方便在病例系统旁边点击。
 
-当前版本：`v1.3.41`
+当前版本：`v1.3.42`
 
 ## 安装
 
-从 GitHub Releases 下载 `ResidentTyper-v1.3.41-windows-x64.zip`，解压后直接运行
+从 GitHub Releases 下载 `ResidentTyper-v1.3.42-windows-x64.zip`，解压后直接运行
 `resident_typer_demo.exe`。请保持 `可修改文本` 文件夹与 exe 位于同一目录，模板内容可直接编辑，无需重新编译。
 
 ## 运行和调试
