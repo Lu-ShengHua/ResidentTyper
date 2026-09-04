@@ -51,7 +51,7 @@ const SELECTION_POPUP_CLASS: &str = "ResidentTyperSelectionPopup";
 const SETTINGS_WINDOW_CLASS: &str = "ResidentTyperSettingsWindow";
 const DOCK_HANDLE_CLASS: &str = "ResidentTyperDockHandle";
 const APP_TITLE: &str = "神外小助手";
-const APP_VERSION: &str = "v1.4.0";
+const APP_VERSION: &str = "v1.4.1";
 const APP_UPDATED_AT: &str = "2026-09-04";
 const DEFAULT_REMOTE_SIGN_SERVER: &str = "192.168.1.2";
 const DEFAULT_REMOTE_SIGN_PORT: u16 = 41888;
@@ -8246,31 +8246,26 @@ mod tests {
         assert_eq!(
             script
                 .lines()
-                .filter(|line| line.starts_with("LeftDown"))
+                .filter(|line| line.starts_with("LeftClick"))
                 .count(),
             48
         );
         assert_eq!(
             script
                 .lines()
-                .filter(|line| line.starts_with("LeftUp"))
+                .filter(|line| line.starts_with("KeyPress"))
+                .count(),
+            14
+        );
+        assert_eq!(
+            script
+                .lines()
+                .filter(|line| line.starts_with("MoveTo"))
                 .count(),
             48
         );
-        assert_eq!(
-            script
-                .lines()
-                .filter(|line| line.starts_with("KeyDown"))
-                .count(),
-            14
-        );
-        assert_eq!(
-            script
-                .lines()
-                .filter(|line| line.starts_with("KeyUp"))
-                .count(),
-            14
-        );
+        assert!(!script.contains("LeftDown"));
+        assert!(!script.contains("LeftUp"));
         assert!(script.contains("MoveTo 1144, 1006"));
         assert!(script.contains("MoveTo 1593, 455"));
     }
@@ -8409,7 +8404,7 @@ fn run_clinical_path_flow() {
         mouse_move(730, 820);
         sleep_interruptible(450);
     }
-    run_q_mouse_keyboard_script(&script, profile == 0);
+    run_q_mouse_keyboard_script(&script, true);
 }
 
 fn clinical_path_next_item() {

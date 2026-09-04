@@ -22,7 +22,7 @@ dependencies = [
 
 [[package]]
 name = "resident_typer_demo"
-version = "1.4.0"
+version = "1.4.1"
 dependencies = [
  "windows",
 ]

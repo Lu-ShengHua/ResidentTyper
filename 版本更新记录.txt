@@ -333,3 +333,7 @@ v1.3.42 - 2026-09-04
 [v1.4.0] 2026-09-04
 - Updated the EMR login flow to find and click the UI Automation checkbox named CA Login.
 - Kept account entry and the following Enter confirmation flow unchanged.
+
+[v1.4.1] 2026-09-04
+- Simplified the 2160p clinical-path script to direct target clicks without recorded mouse-movement trails.
+- Applied the same safe delay processing used by the 1080p clinical-path flow.
