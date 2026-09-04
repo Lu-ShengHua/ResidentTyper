@@ -51,7 +51,7 @@ const SELECTION_POPUP_CLASS: &str = "ResidentTyperSelectionPopup";
 const SETTINGS_WINDOW_CLASS: &str = "ResidentTyperSettingsWindow";
 const DOCK_HANDLE_CLASS: &str = "ResidentTyperDockHandle";
 const APP_TITLE: &str = "神外小助手";
-const APP_VERSION: &str = "v1.3.43";
+const APP_VERSION: &str = "v1.4.0";
 const APP_UPDATED_AT: &str = "2026-09-04";
 const DEFAULT_REMOTE_SIGN_SERVER: &str = "192.168.1.2";
 const DEFAULT_REMOTE_SIGN_PORT: u16 = 41888;
@@ -6456,7 +6456,7 @@ fn run_medical_system_flow(username: String) {
         }
         sleep_interruptible(600);
     }
-    click_login_checkbox_by_name("其他登录方式", None, 2500);
+    click_login_checkbox_by_name("CA登录", None, 2500);
     sleep_interruptible(500);
     mouse_move(points.medical_login.0, points.medical_login.1);
     mouse_left_click();
