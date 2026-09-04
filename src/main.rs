@@ -51,7 +51,7 @@ const SELECTION_POPUP_CLASS: &str = "ResidentTyperSelectionPopup";
 const SETTINGS_WINDOW_CLASS: &str = "ResidentTyperSettingsWindow";
 const DOCK_HANDLE_CLASS: &str = "ResidentTyperDockHandle";
 const APP_TITLE: &str = "神外小助手";
-const APP_VERSION: &str = "v1.3.42";
+const APP_VERSION: &str = "v1.3.43";
 const APP_UPDATED_AT: &str = "2026-09-04";
 const DEFAULT_REMOTE_SIGN_SERVER: &str = "192.168.1.2";
 const DEFAULT_REMOTE_SIGN_PORT: u16 = 41888;
@@ -287,6 +287,7 @@ static DOCK_LAST_SCREEN_W: AtomicI32 = AtomicI32::new(0);
 static DOCK_LAST_SCREEN_H: AtomicI32 = AtomicI32::new(0);
 static mut DOCK_HANDLE_HWND: Hwnd = 0;
 static LAUNCH_RESOLUTION_PROFILE: AtomicUsize = AtomicUsize::new(0);
+static CLINICAL_PATH_RESOLUTION_PROFILE: AtomicUsize = AtomicUsize::new(0);
 static SETTINGS_API_MODE_CHECKED: AtomicBool = AtomicBool::new(false);
 static API_DOC_GENERATED_MASK: AtomicU32 = AtomicU32::new(0);
 static API_CONTEXT_DOC_INDEX: AtomicI32 = AtomicI32::new(-1);
@@ -368,6 +369,8 @@ struct SettingsDialogState {
     remote_sign_port: Hwnd,
     auto_remote_sign: Hwnd,
     dock_hide_delay: Hwnd,
+    clinical_res_1080: Hwnd,
+    clinical_res_2160: Hwnd,
     launch_alt_f4: Hwnd,
     launch_alt_f4_no: Hwnd,
     startup_check: Hwnd,
@@ -383,6 +386,8 @@ static mut SETTINGS_DIALOG: SettingsDialogState = SettingsDialogState {
     remote_sign_port: 0,
     auto_remote_sign: 0,
     dock_hide_delay: 0,
+    clinical_res_1080: 0,
+    clinical_res_2160: 0,
     launch_alt_f4: 0,
     launch_alt_f4_no: 0,
     startup_check: 0,
@@ -508,6 +513,7 @@ struct Settings {
     auto_remote_sign: bool,
     dock_hide_delay_ms: u64,
     launch_resolution_profile: usize,
+    clinical_path_resolution_profile: usize,
     launch_alt_f4: bool,
     api_mode_enabled: bool,
     deepseek_api_key: String,
@@ -1539,6 +1545,8 @@ extern "system" fn settings_window_proc(
                 SETTINGS_DIALOG.hwnd = 0;
                 SETTINGS_DIALOG.medical_path = 0;
                 SETTINGS_DIALOG.order_path = 0;
+                SETTINGS_DIALOG.clinical_res_1080 = 0;
+                SETTINGS_DIALOG.clinical_res_2160 = 0;
                 0
             }
             _ => DefWindowProcW(hwnd, msg, w_param, l_param),
@@ -2111,10 +2119,26 @@ unsafe fn create_settings_controls(hwnd: Hwnd) {
     );
     note_label(hwnd, "毫秒，0为立即回缩", 218, 227, 150, 22);
 
-    note_label(hwnd, "EMR注册界面", 22, 274, 96, 22);
-    SETTINGS_DIALOG.launch_alt_f4 = checkbox(hwnd, ID_SETTINGS_ALT_F4, "有", 120, 270, 64, 30);
+    note_label(hwnd, "临床路径分辨率", 22, 274, 112, 22);
+    SETTINGS_DIALOG.clinical_res_1080 =
+        button(hwnd, ID_SETTINGS_RES_1080, "1080p", 140, 270, 96, 30);
+    SETTINGS_DIALOG.clinical_res_2160 =
+        button(hwnd, ID_SETTINGS_RES_2160, "2160p", 246, 270, 96, 30);
+    set_checkbox(
+        ID_SETTINGS_RES_1080,
+        SETTINGS_DIALOG.clinical_res_1080,
+        settings.clinical_path_resolution_profile == 0,
+    );
+    set_checkbox(
+        ID_SETTINGS_RES_2160,
+        SETTINGS_DIALOG.clinical_res_2160,
+        settings.clinical_path_resolution_profile == 1,
+    );
+
+    note_label(hwnd, "EMR注册界面", 22, 318, 96, 22);
+    SETTINGS_DIALOG.launch_alt_f4 = checkbox(hwnd, ID_SETTINGS_ALT_F4, "有", 120, 314, 64, 30);
     SETTINGS_DIALOG.launch_alt_f4_no =
-        checkbox(hwnd, ID_SETTINGS_ALT_F4_NO, "无", 190, 270, 64, 30);
+        checkbox(hwnd, ID_SETTINGS_ALT_F4_NO, "无", 190, 314, 64, 30);
     set_checkbox(
         ID_SETTINGS_ALT_F4,
         SETTINGS_DIALOG.launch_alt_f4,
@@ -2126,7 +2150,7 @@ unsafe fn create_settings_controls(hwnd: Hwnd) {
         !settings.launch_alt_f4,
     );
     SETTINGS_DIALOG.startup_check =
-        checkbox(hwnd, ID_STARTUP_CHECK, "开机自启动", 22, 320, 120, 26);
+        checkbox(hwnd, ID_STARTUP_CHECK, "开机自启动", 22, 364, 120, 26);
     set_checkbox(
         ID_STARTUP_CHECK,
         SETTINGS_DIALOG.startup_check,
@@ -2137,7 +2161,7 @@ unsafe fn create_settings_controls(hwnd: Hwnd) {
         ID_SETTINGS_AUTO_REMOTE_SIGN,
         "启动病历/医嘱后自动一键签名",
         158,
-        320,
+        364,
         310,
         26,
     );
@@ -2147,14 +2171,14 @@ unsafe fn create_settings_controls(hwnd: Hwnd) {
         settings.auto_remote_sign,
     );
 
-    button(hwnd, ID_SETTINGS_SAVE, "保存", 264, 378, 92, 34);
-    button(hwnd, ID_SETTINGS_CANCEL, "取消", 372, 378, 92, 34);
+    button(hwnd, ID_SETTINGS_SAVE, "保存", 264, 422, 92, 34);
+    button(hwnd, ID_SETTINGS_CANCEL, "取消", 372, 422, 92, 34);
     set_theme(DARK_THEME.load(Ordering::SeqCst));
 }
 
 unsafe fn show_settings_window() {
     let w = 492;
-    let h = 446;
+    let h = 490;
     if SETTINGS_DIALOG.hwnd != 0 && IsWindow(SETTINGS_DIALOG.hwnd) != 0 {
         refresh_settings_window_values();
         ShowWindow(SETTINGS_DIALOG.hwnd, SW_SHOW);
@@ -2247,6 +2271,16 @@ unsafe fn refresh_settings_window_values() {
         );
     }
     set_checkbox(
+        ID_SETTINGS_RES_1080,
+        SETTINGS_DIALOG.clinical_res_1080,
+        settings.clinical_path_resolution_profile == 0,
+    );
+    set_checkbox(
+        ID_SETTINGS_RES_2160,
+        SETTINGS_DIALOG.clinical_res_2160,
+        settings.clinical_path_resolution_profile == 1,
+    );
+    set_checkbox(
         ID_SETTINGS_ALT_F4,
         SETTINGS_DIALOG.launch_alt_f4,
         settings.launch_alt_f4,
@@ -2270,6 +2304,30 @@ unsafe fn refresh_settings_window_values() {
 
 unsafe fn handle_settings_command(id: i32) {
     match id {
+        ID_SETTINGS_RES_1080 => {
+            set_checkbox(
+                ID_SETTINGS_RES_1080,
+                SETTINGS_DIALOG.clinical_res_1080,
+                true,
+            );
+            set_checkbox(
+                ID_SETTINGS_RES_2160,
+                SETTINGS_DIALOG.clinical_res_2160,
+                false,
+            );
+        }
+        ID_SETTINGS_RES_2160 => {
+            set_checkbox(
+                ID_SETTINGS_RES_1080,
+                SETTINGS_DIALOG.clinical_res_1080,
+                false,
+            );
+            set_checkbox(
+                ID_SETTINGS_RES_2160,
+                SETTINGS_DIALOG.clinical_res_2160,
+                true,
+            );
+        }
         ID_SETTINGS_ALT_F4 => {
             set_checkbox(ID_SETTINGS_ALT_F4, SETTINGS_DIALOG.launch_alt_f4, true);
             set_checkbox(
@@ -2342,9 +2400,13 @@ unsafe fn handle_settings_command(id: i32) {
             settings.auto_remote_sign = checkbox_checked(ID_SETTINGS_AUTO_REMOTE_SIGN);
             settings.dock_hide_delay_ms =
                 normalized_dock_hide_delay(&get_window_text(SETTINGS_DIALOG.dock_hide_delay));
+            settings.clinical_path_resolution_profile =
+                usize::from(checkbox_checked(ID_SETTINGS_RES_2160));
             settings.launch_alt_f4 = checkbox_checked(ID_SETTINGS_ALT_F4);
             settings.startup_enabled = checkbox_checked(ID_STARTUP_CHECK);
             DOCK_HIDE_DELAY_MS.store(settings.dock_hide_delay_ms, Ordering::SeqCst);
+            CLINICAL_PATH_RESOLUTION_PROFILE
+                .store(settings.clinical_path_resolution_profile, Ordering::SeqCst);
             set_startup_enabled(settings.startup_enabled);
             save_settings(&settings);
             ShowWindow(SETTINGS_DIALOG.hwnd, SW_HIDE);
@@ -4257,6 +4319,8 @@ fn is_checkbox_id(id: i32) -> bool {
             | ID_SHORTCUT_SAVE_ORDER
             | ID_SETTINGS_ALT_F4
             | ID_SETTINGS_ALT_F4_NO
+            | ID_SETTINGS_RES_1080
+            | ID_SETTINGS_RES_2160
             | ID_SETTINGS_AUTO_REMOTE_SIGN
     )
 }
@@ -4733,6 +4797,8 @@ fn checkbox_bit(id: i32) -> u32 {
         ID_SETTINGS_ALT_F4 => 1 << 8,
         ID_SETTINGS_ALT_F4_NO => 1 << 9,
         ID_SETTINGS_AUTO_REMOTE_SIGN => 1 << 10,
+        ID_SETTINGS_RES_1080 => 1 << 11,
+        ID_SETTINGS_RES_2160 => 1 << 12,
         _ => 0,
     }
 }
@@ -4863,6 +4929,10 @@ unsafe fn load_settings_into_ui() {
     DOCK_ENABLED.store(settings.dock_enabled, Ordering::SeqCst);
     DOCK_HIDE_DELAY_MS.store(settings.dock_hide_delay_ms, Ordering::SeqCst);
     LAUNCH_RESOLUTION_PROFILE.store(settings.launch_resolution_profile.min(1), Ordering::SeqCst);
+    CLINICAL_PATH_RESOLUTION_PROFILE.store(
+        settings.clinical_path_resolution_profile.min(1),
+        Ordering::SeqCst,
+    );
     TASKBAR_VISIBLE.store(settings.taskbar_visible, Ordering::SeqCst);
     DOCK_EDGE.store(DOCK_EDGE_RIGHT, Ordering::SeqCst);
     DOCK_VISIBLE.store(true, Ordering::SeqCst);
@@ -4908,6 +4978,7 @@ unsafe fn read_settings_from_ui() -> Settings {
         auto_remote_sign: existing.auto_remote_sign,
         dock_hide_delay_ms: existing.dock_hide_delay_ms,
         launch_resolution_profile: existing.launch_resolution_profile.min(1),
+        clinical_path_resolution_profile: existing.clinical_path_resolution_profile.min(1),
         launch_alt_f4: existing.launch_alt_f4,
         api_mode_enabled: existing.api_mode_enabled,
         deepseek_api_key: existing.deepseek_api_key,
@@ -5030,6 +5101,10 @@ fn load_settings() -> Settings {
                         settings.launch_resolution_profile =
                             value.trim().parse::<usize>().unwrap_or(0).min(1)
                     }
+                    "clinical_path_resolution_profile" => {
+                        settings.clinical_path_resolution_profile =
+                            value.trim().parse::<usize>().unwrap_or(0).min(1)
+                    }
                     "launch_alt_f4" => settings.launch_alt_f4 = value.trim() == "1",
                     "api_mode_enabled" => settings.api_mode_enabled = value.trim() == "1",
                     "deepseek_api_key" => settings.deepseek_api_key = decode_setting(value),
@@ -5056,7 +5131,7 @@ fn load_settings() -> Settings {
 
 fn save_settings(settings: &Settings) {
     let text = format!(
-        "username={}\npassword={}\nskip_reminder={}\nwindow_x={}\nwindow_y={}\nwindow_w={}\nwindow_h={}\ndisease_index={}\ndark_theme={}\ndock_enabled={}\ntaskbar_visible={}\nstartup_enabled={}\nclipboard_auto={}\nsave_order_hotkey={}\nclinical_loop_count={}\ncreate_all_base_time={}\npostop_base_time={}\nattending_superior={}\nchief_superior={}\nward_building_index={}\nward_floor={}\nmedical_system_path={}\norder_system_path={}\nnursing_system_path={}\nremote_sign_server={}\nremote_sign_port={}\nauto_remote_sign={}\ndock_hide_delay_ms={}\nlaunch_resolution_profile={}\nlaunch_alt_f4={}\napi_mode_enabled={}\ndeepseek_api_key={}\napi_prompt_text={}\n",
+        "username={}\npassword={}\nskip_reminder={}\nwindow_x={}\nwindow_y={}\nwindow_w={}\nwindow_h={}\ndisease_index={}\ndark_theme={}\ndock_enabled={}\ntaskbar_visible={}\nstartup_enabled={}\nclipboard_auto={}\nsave_order_hotkey={}\nclinical_loop_count={}\ncreate_all_base_time={}\npostop_base_time={}\nattending_superior={}\nchief_superior={}\nward_building_index={}\nward_floor={}\nmedical_system_path={}\norder_system_path={}\nnursing_system_path={}\nremote_sign_server={}\nremote_sign_port={}\nauto_remote_sign={}\ndock_hide_delay_ms={}\nlaunch_resolution_profile={}\nclinical_path_resolution_profile={}\nlaunch_alt_f4={}\napi_mode_enabled={}\ndeepseek_api_key={}\napi_prompt_text={}\n",
         encode_setting(&settings.username),
         encode_setting(&settings.password),
         if settings.skip_reminder { "1" } else { "0" },
@@ -5086,6 +5161,7 @@ fn save_settings(settings: &Settings) {
         if settings.auto_remote_sign { "1" } else { "0" },
         settings.dock_hide_delay_ms.min(5_000),
         settings.launch_resolution_profile.min(1),
+        settings.clinical_path_resolution_profile.min(1),
         if settings.launch_alt_f4 { "1" } else { "0" },
         if settings.api_mode_enabled { "1" } else { "0" },
         encode_setting(&settings.deepseek_api_key),
@@ -8165,6 +8241,41 @@ mod tests {
     }
 
     #[test]
+    fn clinical_path_2160_script_preserves_recorded_actions() {
+        let script = String::from_utf8_lossy(include_bytes!("../scripts/临床路径2160p.Q"));
+        assert_eq!(
+            script
+                .lines()
+                .filter(|line| line.starts_with("LeftDown"))
+                .count(),
+            48
+        );
+        assert_eq!(
+            script
+                .lines()
+                .filter(|line| line.starts_with("LeftUp"))
+                .count(),
+            48
+        );
+        assert_eq!(
+            script
+                .lines()
+                .filter(|line| line.starts_with("KeyDown"))
+                .count(),
+            14
+        );
+        assert_eq!(
+            script
+                .lines()
+                .filter(|line| line.starts_with("KeyUp"))
+                .count(),
+            14
+        );
+        assert!(script.contains("MoveTo 1144, 1006"));
+        assert!(script.contains("MoveTo 1593, 455"));
+    }
+
+    #[test]
     fn superior_popup_stays_on_screen_and_opens_up_when_needed() {
         let anchor = Rect {
             left: 1800,
@@ -8261,25 +8372,44 @@ unsafe fn start_clinical_path_continuous_flow() {
 }
 
 fn run_clinical_path_flow() {
-    mouse_move(730, 820);
-    sleep_interruptible(450);
-    mouse_move(815, 826);
-    sleep_interruptible(450);
-    let script_name = "\u{4e34}\u{5e8a}\u{8def}\u{5f84}.Q";
+    let profile = CLINICAL_PATH_RESOLUTION_PROFILE
+        .load(Ordering::SeqCst)
+        .min(1);
+    if profile == 0 {
+        mouse_move(730, 820);
+        sleep_interruptible(450);
+        mouse_move(815, 826);
+        sleep_interruptible(450);
+    }
+    let script_name = if profile == 1 {
+        "\u{4e34}\u{5e8a}\u{8def}\u{5f84}2160p.Q"
+    } else {
+        "\u{4e34}\u{5e8a}\u{8def}\u{5f84}.Q"
+    };
     let text = fs::read_to_string(script_path(script_name))
         .or_else(|_| fs::read_to_string(asset_path("scripts", script_name)))
-        .or_else(|_| fs::read_to_string(r"C:\Users\卢盛华\Desktop\DeskShare\互通\vibeC\临床路径.Q"))
+        .or_else(|_| match profile {
+            0 => fs::read_to_string(r"C:\Users\卢盛华\Desktop\DeskShare\互通\vibeC\临床路径.Q"),
+            _ => Err(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                "no legacy 2160p script",
+            )),
+        })
         .or_else(|_| {
             fs::read_to_string(
-                r"C:\Users\卢盛华\Desktop\DeskShare\互通\resident_typer\scripts\临床路径.Q",
+                Path::new(r"C:\Users\卢盛华\Desktop\DeskShare\互通\resident_typer\scripts")
+                    .join(script_name),
             )
         });
-    let script = text.unwrap_or_else(|_| {
-        String::from_utf8_lossy(include_bytes!("../scripts/临床路径.Q")).into_owned()
+    let script = text.unwrap_or_else(|_| match profile {
+        1 => String::from_utf8_lossy(include_bytes!("../scripts/临床路径2160p.Q")).into_owned(),
+        _ => String::from_utf8_lossy(include_bytes!("../scripts/临床路径.Q")).into_owned(),
     });
-    mouse_move(730, 820);
-    sleep_interruptible(450);
-    run_q_mouse_keyboard_script(&script, true);
+    if profile == 0 {
+        mouse_move(730, 820);
+        sleep_interruptible(450);
+    }
+    run_q_mouse_keyboard_script(&script, profile == 0);
 }
 
 fn clinical_path_next_item() {

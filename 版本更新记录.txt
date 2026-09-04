@@ -324,3 +324,8 @@ v1.3.41 - 2026-09-02
 
 v1.3.42 - 2026-09-04
 - Added a cleanup button beside Settings. It closes all matching EMR and resident-station windows, plus all Edge and Chrome instances.
+
+[v1.3.43] 2026-09-04
+- Added highlighted 1080p / 2160p choices that affect clinical-path automation only.
+- Added the supplied KeymouseGo 2160p single-run action; continuous mode keeps the existing iteration and next-item behavior.
+- EMR, order, and nursing system launch behavior is unchanged.
